@@ -16,10 +16,10 @@ An example device tree entry would be:
         lookup-table = "Rev_1-0", Rev_1-1.2", "Rev_2.1";
     }; 
 
-@board_name: this is the actual dev name that will be given to this sysfs entry in the hwmon class
-@gpios: you must define four triple's as shown above. The ACTIVE_HIGH/ACTIVE_LOW is ignored
-@ref-bits: a string list as shown above that must match the order of the gpios property
-@lookup-table: a string list with zero based index reference. Empty strings can be used to 'skip' indexes
+*@board_name: this is the actual dev name that will be given to this sysfs entry in the hwmon class
+*@gpios: you must define four triple's as shown above. The ACTIVE_HIGH/ACTIVE_LOW is ignored
+*@ref-bits: a string list as shown above that must match the order of the gpios property
+*@lookup-table: a string list with zero based index reference. Empty strings can be used to 'skip' indexes
 
 
 In the example above our board will register with the hwmon class in sysfs and be given a dev name of
@@ -27,4 +27,4 @@ In the example above our board will register with the hwmon class in sysfs and b
 binary number we look at the lookup-table and retrun the string whose index matches that binary number.
 If the binary number does NOT have an entry (i.e. greater than the largest index) we will report 
 "INVALID HW / ASSY REVISION VALUE". Lets assume gpio5_27 is HIGH and the other three are LOW; when iterogated
-the device will report a HW/ASSY Revision: Rev_1-1.2
+the device will report a HW/ASSY Revision: *Rev_1-1.2*

@@ -11,14 +11,38 @@
  *
  */
 
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-
 #include "hwassyv.h"
 #include <linux/string.h>
 #include <linux/delay.h>
 
-module_init();
-module_exit();
+static struct of_device_id hwassyv_of_match[] = {
+    { .compatible = "hwassy-rev" },
+    { }
+};
+
+static int hwassyv_dt_probe(struct platform_device *pdev)
+{
+    return 0;
+}
+
+static int hwassyv_remove(struct platform_device *pdev)
+{
+    return 0;
+}
+
+MODULE_DEVICE_TABLE(of, hwassyv_of_match);
+
+static struct platform_driver hwassyv_driver = {
+    .driver     = {
+        .name       = "hwassy-vreport",
+        .owner      = THIS_MODULE,
+        .of_match_table = of_match_ptr(hwassyv_of_match),
+    },
+    .probe      = hwassyv_dt_probe,
+    .remove     = hwassyv_remove,
+};
+
+module_platform_driver(hwassyv_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Cody Tudor <cody.tudor@gmail.com>");
