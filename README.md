@@ -16,10 +16,10 @@ An example device tree entry would be:
         lookup-table = "Rev_1-0", Rev_1-1.2", "Rev_2.1";
     }; 
 
-*@board_name: this is the actual dev name that will be given to this sysfs entry in the hwmon class
-*@gpios: you must define four triple's as shown above. The ACTIVE_HIGH/ACTIVE_LOW is ignored
-*@ref-bits: a string list as shown above that must match the order of the gpios property
-*@lookup-table: a string list with zero based index reference. Empty strings can be used to 'skip' indexes
+* @board_name: this is the actual dev name that will be given to this sysfs entry in the hwmon class
+* @gpios: you must define four triple's as shown above. The ACTIVE_HIGH/ACTIVE_LOW is ignored
+* @ref-bits: a string list as shown above that must match the order of the gpios property
+* @lookup-table: a string list with zero based index reference. Empty strings can be used to 'skip' indexes
 
 
 In the example above our board will register with the hwmon class in sysfs and be given a dev name of
