@@ -1,0 +1,10 @@
+config HWMON_HWASSYV
+        bool "HW/ASSY Version Reporting Driver"
+        depends on OF
+        default n
+        help
+          This is a generic driver that utilizes
+          four GPIOs to read a given board's hardware
+          and/or assembly revision. If you are unsure
+          select n.
+
