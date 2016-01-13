@@ -15,9 +15,7 @@
 #include <linux/module.h>     
 #include <linux/init.h>
 #include <linux/platform_device.h>
-#include <linux/err.h>
 #include <linux/slab.h>
-#include <linux/device.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/string.h>
@@ -37,17 +35,17 @@ enum hwassyv_bits {
 };
 
 struct hwassyv_platform_data {
-    int gpios[MAX_BITS];                    // array of gpios where index = bit
-    unsigned int table_index;               // 4-bit number created from gpio's
-    char revision[MAX_REVISION_NAME_SIZE];  // string text holding board revision
+    unsigned int gpios[MAX_BITS];   // array of gpios where index = bit
+    unsigned int table_index;       // 4-bit number created from gpio's
+    const char *revision;           // string text holding board revision
+    char name[PLATFORM_NAME_SIZE];
 };
 
 struct hwassyv_data {
 
     struct device *hwmon_dev;
     struct hwassyv_platform_data *pdata;
-    struct device *dev; 
-    char name[PLATFORM_NAME_SIZE];   
+    struct device *dev;    
     int use_count;
 };
 
@@ -62,23 +60,23 @@ const char *const bit_names[] = {
 static ssize_t hwassyv_show_version(struct device *dev,
         struct device_attribute *attr, char *buf)
 {
-    struct hwassyv_data *data = dev_get_drvdata(dev);
+    struct hwassyv_platform_data *data = dev_get_drvdata(dev);
     
-    return sprintf(buf, "%s\n", data->pdata->revision);
+    return sprintf(buf, "%s\n", data->revision);
 }
 
 static ssize_t hwassyv_show_index(struct device *dev,
         struct device_attribute *attr, char *buf)
 {
-    struct hwassyv_data *data = dev_get_drvdata(dev);
+    struct hwassyv_platform_data *data = dev_get_drvdata(dev);
     
-    return sprintf(buf, "lookup-table index: %d\n", data->pdata->table_index);
+    return sprintf(buf, "lookup-table index: %d\n", data->table_index);
 }
 
 static ssize_t hwassyv_show_name(struct device *dev,
         struct device_attribute *attr, char *buf)
 {
-    struct hwassyv_data *data = dev_get_drvdata(dev);
+    struct hwassyv_platform_data *data = dev_get_drvdata(dev);
 
     return sprintf(buf, "%s\n", data->name);
 }
@@ -86,17 +84,6 @@ static ssize_t hwassyv_show_name(struct device *dev,
 static DEVICE_ATTR(board_rev, S_IRUGO, hwassyv_show_version, NULL);
 static DEVICE_ATTR(list_index, S_IRUGO, hwassyv_show_index, NULL);
 static DEVICE_ATTR(name, S_IRUGO, hwassyv_show_name, NULL);
-
-static struct attribute *hwassyv_attributes[] = {
-    &dev_attr_name.attr,
-    &dev_attr_board_rev.attr,
-    &dev_attr_list_index.attr,
-    NULL,
-};
-
-static const struct attribute_group hwassyv_attr_group = {
-    .attrs = hwassyv_attributes,
-};
 
 static struct of_device_id hwassyv_of_match[] = {
     { .compatible = "hwassy-rev" },
@@ -110,10 +97,10 @@ static struct hwassyv_platform_data *hwassyv_parse_dt(struct platform_device *pd
     struct device_node *node = pdev->dev.of_node;
     struct hwassyv_platform_data *pdata;
     int length;
-    int ret;
     int index;
-    int gpio_num;
+    unsigned int gpio_num;
     int cntr;
+    int retval = 0;
 
     if (!node)
         return ERR_PTR(-ENODEV);
@@ -149,15 +136,15 @@ static struct hwassyv_platform_data *hwassyv_parse_dt(struct platform_device *pd
         index = of_property_match_string(node, "ref-bits", bit_names[cntr]);
         if (index >= 0) {
             gpio_num = of_get_named_gpio_flags(node, "gpios", index, NULL);
-            ret = gpio_request(gpio_num, "hwassyv");
-            if (ret < 0)
+            retval = gpio_request(gpio_num, "hwassyv");
+            if (retval < 0)
                 goto err;
-            ret = gpio_direction_input(gpio_num);
-            if (ret < 0) {
+            retval = gpio_direction_input(gpio_num);
+            if (retval < 0) {
                 gpio_free(gpio_num);
                 goto err;
             }
-            pdata->gpios[cntr] = gpio_num;
+            pdata->gpios[cntr] = gpio_num;           
             dev_dbg(&pdev->dev, "found %s for our hwassy version index\n", bit_names[cntr]);
             index = -ENODATA;
         }
@@ -168,23 +155,32 @@ static struct hwassyv_platform_data *hwassyv_parse_dt(struct platform_device *pd
     }
     
     
+    pdata->table_index = 0;
+    printk(KERN_INFO "our table index is now %d\n", pdata->table_index);
     
     for (cntr = BIT0; cntr < MAX_BITS; cntr++) {
-        pdata->table_index |= __gpio_get_value(pdata->gpios[cntr]);
+        printk(KERN_INFO "the value of gpio%u is %i\n", pdata->gpios[cntr], gpio_get_value(pdata->gpios[cntr]));
+        pdata->table_index |= gpio_get_value(pdata->gpios[cntr]);
+        printk(KERN_INFO "our table index is now %d\n", pdata->table_index);
         pdata->table_index = pdata->table_index << 1;
     }
     
     pdata->table_index = pdata->table_index >> 1;
+    printk(KERN_INFO "our table index is now %d\n", pdata->table_index);
+    
+    //Hack -> Begin
+    pdata->table_index = 0;
+    //Hack -> End
     
     if (pdata->table_index > 15) {
         dev_err(&pdev->dev, "something went wrong determining our table index\n"); 
         goto err;
     }
     
-    ret = of_property_read_string_index(node, "lookup-table", pdata->table_index, pdata->revision);
+    retval = of_property_read_string_index(node, "lookup-table", pdata->table_index, &pdata->revision);
     
-    if (ret < 0)
-        pdata->revision = "NO REVISION NAME FOR THIS BOARD";
+    if (retval < 0)
+        pdata->revision = "INVALID HW / ASSY REVISION VALUE";
 
     return pdata;
     
@@ -195,7 +191,7 @@ err:
             gpio_free(pdata->gpios[cntr]);   
     }
     kfree(pdata);
-    return ERR_PTR(ret);
+    return ERR_PTR(retval);
 }
 
 static int hwassyv_dt_probe(struct platform_device *pdev)
@@ -222,29 +218,50 @@ static int hwassyv_dt_probe(struct platform_device *pdev)
         
     data->dev = &pdev->dev;
     data->pdata = pdata;
-    strlcpy(data->name, dev_name(&pdev->dev), sizeof(data->name));
+    strlcpy(pdata->name, dev_name(&pdev->dev), sizeof(pdata->name));
     
     platform_set_drvdata(pdev, data);
-    
-    ret = sysfs_create_group(&data->dev->kobj, &hwassyv_attr_group);
-    if (ret) {
-        dev_err(data->dev, "unable to create sysfs files\n");
-        return ret;
-    }
 
     data->hwmon_dev = hwmon_device_register(data->dev);
     if (IS_ERR(data->hwmon_dev)) {
         dev_err(data->dev, "failed to register hw/assy version reporting driver\n\n");
-        ret = PTR_ERR(data->hwmon_dev);
-        goto err_after_sysfs;
+        return PTR_ERR(data->hwmon_dev);
+    }
+    
+    dev_set_drvdata(data->hwmon_dev, pdata);
+    
+    ret = device_create_file(data->hwmon_dev, &dev_attr_name);
+    if (ret) {
+        dev_err(data->dev, "unable to create dev_attr_name sysfs file\n");
+        goto err_after_create;
+    }
+    
+    ret = device_create_file(data->hwmon_dev, &dev_attr_board_rev);
+    if (ret) {
+        dev_err(data->dev, "unable to create dev_attr_board_rev sysfs file\n");
+        goto unregister_board_rev;
+    }
+    
+    ret = device_create_file(data->hwmon_dev, &dev_attr_list_index);
+    if (ret) {
+        dev_err(data->dev, "unable to create dev_attr_list_index sysfs file\n");
+        goto unregister_list_index;
     }
 
-    dev_info(&pdev->dev, "%s successfully probed.\n", pdev->name);
+    dev_info(&pdev->dev, "HW/ASSY driver successfully probed.\n");
 
     return 0;
     
-err_after_sysfs:
-    sysfs_remove_group(&data->dev->kobj, &hwassyv_attr_group);
+unregister_list_index:
+    device_remove_file(data->hwmon_dev, &dev_attr_board_rev);
+    
+unregister_board_rev:
+    device_remove_file(data->hwmon_dev, &dev_attr_name);
+    
+err_after_create:
+    hwmon_device_unregister(data->hwmon_dev);
+    kfree(data);
+    kfree(pdata);
     return ret;
     
 }
@@ -253,8 +270,11 @@ static int hwassyv_remove(struct platform_device *pdev)
 {
     struct hwassyv_data *data = platform_get_drvdata(pdev);
 
+    device_remove_file(data->hwmon_dev, &dev_attr_name);
+    device_remove_file(data->hwmon_dev, &dev_attr_board_rev);
+    device_remove_file(data->hwmon_dev, &dev_attr_list_index);
     hwmon_device_unregister(data->hwmon_dev);
-    sysfs_remove_group(&data->dev->kobj, &hwassyv_attr_group);
+    dev_set_drvdata(data->hwmon_dev, NULL);
     platform_set_drvdata(pdev, NULL);
 
     return 0;
@@ -262,7 +282,7 @@ static int hwassyv_remove(struct platform_device *pdev)
 
 static struct platform_driver hwassyv_driver = {
     .driver     = {
-        .name       = "hwassy-vreport",
+        .name       = "hwassy-rev",
         .owner      = THIS_MODULE,
         .of_match_table = of_match_ptr(hwassyv_of_match),
     },
