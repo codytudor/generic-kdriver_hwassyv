@@ -1,1 +1,8 @@
+*.o
+*.cmd
+*.ko
+*.mod.c
+*.geany
 *~
+Kconfig
+Makefile
