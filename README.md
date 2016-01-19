@@ -24,7 +24,7 @@ An example device tree entry would be:
 
 In the example above our board will register with the hwmon class in sysfs and be given a dev name of
 'board_name'. Our binary number is calulated as 0b{gpio5_21}{gpio5_18}{gpio6_1}{gpio5_27}. With the 
-binary number we look at the lookup-table and retrun the string whose index matches that binary number.
+binary number we look at the lookup-table and return the string whose index matches that binary number.
 If the binary number does NOT have an entry (i.e. greater than the largest index) we will report 
-"INVALID HW / ASSY REVISION VALUE". Lets assume gpio5_27 is HIGH and the other three are LOW; when iterogated
+"INVALID HW / ASSY REVISION VALUE". Lets assume gpio5_27 is HIGH and the other three are LOW; when interrogated
 the device will report a HW/ASSY Revision: *Rev_1-1.2*

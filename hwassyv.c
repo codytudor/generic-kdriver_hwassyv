@@ -23,15 +23,12 @@
 #include <linux/hwmon-sysfs.h>
 #include <linux/sysfs.h>
 
-#define MAX_REVISION_NAME_SIZE 32
-
 enum hwassyv_bits {
     BIT0 = 0,
-    BIT1 = 1,
-    BIT2 = 2,
-    BIT3 = 3,
-    MAX_BITS = 4,
-    INVALID_BITS = 255,
+    BIT1,
+    BIT2,
+    BIT3,
+    MAX_BITS,
 };
 
 struct hwassyv_platform_data {
@@ -159,21 +156,16 @@ static struct hwassyv_platform_data *hwassyv_parse_dt(struct platform_device *pd
     printk(KERN_INFO "our table index is now %d\n", pdata->table_index);
     
     for (cntr = BIT0; cntr < MAX_BITS; cntr++) {
-        printk(KERN_INFO "the value of gpio%u is %i\n", pdata->gpios[cntr], gpio_get_value(pdata->gpios[cntr]));
-        pdata->table_index |= gpio_get_value(pdata->gpios[cntr]);
-        printk(KERN_INFO "our table index is now %d\n", pdata->table_index);
+        if (gpio_get_value(pdata->gpios[cntr]))
+            pdata->table_index |= 1;
         pdata->table_index = pdata->table_index << 1;
     }
     
     pdata->table_index = pdata->table_index >> 1;
-    printk(KERN_INFO "our table index is now %d\n", pdata->table_index);
-    
-    //Hack -> Begin
-    pdata->table_index = 0;
-    //Hack -> End
-    
+        
     if (pdata->table_index > 15) {
         dev_err(&pdev->dev, "something went wrong determining our table index\n"); 
+        retval = -EINVAL;
         goto err;
     }
     
@@ -233,32 +225,32 @@ static int hwassyv_dt_probe(struct platform_device *pdev)
     ret = device_create_file(data->hwmon_dev, &dev_attr_name);
     if (ret) {
         dev_err(data->dev, "unable to create dev_attr_name sysfs file\n");
-        goto err_after_create;
+        goto err_free_mem;
     }
     
     ret = device_create_file(data->hwmon_dev, &dev_attr_board_rev);
     if (ret) {
         dev_err(data->dev, "unable to create dev_attr_board_rev sysfs file\n");
-        goto unregister_board_rev;
+        goto unregister_name;
     }
     
     ret = device_create_file(data->hwmon_dev, &dev_attr_list_index);
     if (ret) {
         dev_err(data->dev, "unable to create dev_attr_list_index sysfs file\n");
-        goto unregister_list_index;
+        goto unregister_board_rev;
     }
 
     dev_info(&pdev->dev, "HW/ASSY driver successfully probed.\n");
 
     return 0;
     
-unregister_list_index:
+unregister_board_rev:
     device_remove_file(data->hwmon_dev, &dev_attr_board_rev);
     
-unregister_board_rev:
+unregister_name:
     device_remove_file(data->hwmon_dev, &dev_attr_name);
     
-err_after_create:
+err_free_mem:
     hwmon_device_unregister(data->hwmon_dev);
     kfree(data);
     kfree(pdata);
