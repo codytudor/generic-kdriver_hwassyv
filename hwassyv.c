@@ -156,19 +156,15 @@ static struct hwassyv_platform_data *hwassyv_parse_dt(struct platform_device *pd
             goto err;
         }
     }
-    
-    
+        
     pdata->table_index = 0;
-    printk(KERN_INFO "our table index is now %d\n", pdata->table_index);
-    
-    for (cntr = BIT0; cntr < MAX_BITS; cntr++) {
+    cntr = BIT3;
+    do {
         if (gpio_get_value(pdata->gpios[cntr]))
             pdata->table_index |= 1;
-        pdata->table_index = pdata->table_index << 1;
-    }
-    
-    pdata->table_index = pdata->table_index >> 1;
-        
+        pdata->table_index = (cntr != BIT0) ? pdata->table_index << 1 : pdata->table_index;
+    } while (cntr-- > BIT0);
+      
     if (pdata->table_index > 15) {
         dev_err(&pdev->dev, "something went wrong determining our table index\n"); 
         retval = -EINVAL;
